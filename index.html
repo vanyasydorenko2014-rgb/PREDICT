@@ -5,19 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>PREDICT — Прогнозы, рейтинг и соревнование игроков</title>
   <meta name="description" content="PREDICT — платформа прогнозов. Делай прогнозы на события, набирай очки, следи за результатами и поднимайся в общем рейтинге игроков.">
-  <meta name="robots" content="index, follow, max-image-preview:large">
-  <meta name="author" content="PREDICT">
   <meta name="theme-color" content="#0A0B0E">
-
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="PREDICT">
-  <meta property="og:title" content="PREDICT — Платформа прогнозов">
-  <meta property="og:description" content="Делай прогнозы, набирай очки и поднимайся в рейтинге игроков.">
-  <meta property="og:locale" content="ru_RU">
-
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="PREDICT — Платформа прогнозов">
-  <meta name="twitter:description" content="Делай прогнозы, набирай очки и поднимайся в рейтинге игроков.">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -55,15 +43,7 @@
   </style>
 </head>
 <body class="bg-[#0A0B0E] text-slate-100 min-h-screen flex justify-center">
-  <div id="root" class="w-full max-w-md min-h-screen flex flex-col">
-    <noscript>
-      <main style="max-width:700px;margin:40px auto;padding:24px;font-family:Arial,sans-serif;color:#f3f4f6;background:#111319;border-radius:12px">
-        <h1>PREDICT — платформа прогнозов</h1>
-        <p>Делай прогнозы на события, набирай очки, следи за результатами и поднимайся в рейтинге игроков.</p>
-        <p>Для работы приложения включи JavaScript в браузере.</p>
-      </main>
-    </noscript>
-  </div>
+  <div id="root" class="w-full max-w-md min-h-screen flex flex-col"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useMemo, useRef } = React;
@@ -88,45 +68,9 @@
       return canvas.toDataURL();
     };
 
-    const INITIAL_PREDICTIONS = [
-      {
-        id: 'pred_1',
-        question: 'Выиграет ли сегодня Barcelona?',
-        option1: 'ДА',
-        option2: 'НЕТ',
-        status: 'COMPLETED',
-        winningOption: 1,
-        publishedAt: '2026-11-01',
-        completedAt: '2026-11-02',
-        votes: { 'user_demo_1': 1, 'user_demo_2': 1, 'user_demo_3': 2 }
-      },
-      {
-        id: 'pred_2',
-        question: 'Выйдет ли GTA 6 до конца 2027 года?',
-        option1: 'ДА',
-        option2: 'НЕТ',
-        status: 'ACTIVE',
-        winningOption: null,
-        publishedAt: '2026-11-03',
-        completedAt: null,
-        votes: { 'user_demo_1': 1, 'user_demo_2': 2 }
-      }
-    ];
-
-    const INITIAL_USERS = [
-      {
-        id: 'user_demo_1', username: 'CryptoOracle', avatar: generateDefaultAvatar('C'),
-        balance: 15, wins: 5, losses: 1, streak: 3, role: 'USER', createdAt: '2026-10-15'
-      },
-      {
-        id: 'user_demo_2', username: 'Nostradamus', avatar: generateDefaultAvatar('N'),
-        balance: 9, wins: 3, losses: 2, streak: 1, role: 'USER', createdAt: '2026-10-18'
-      },
-      {
-        id: 'user_demo_3', username: 'Futurist99', avatar: generateDefaultAvatar('F'),
-        balance: 3, wins: 1, losses: 3, streak: 0, role: 'USER', createdAt: '2026-10-20'
-      }
-    ];
+    // Чистые списки без тестовых данных
+    const INITIAL_PREDICTIONS = [];
+    const INITIAL_USERS = [];
 
     const DRAW_COLORS = [
       '#000000', '#FFFFFF', '#8B5CF6', '#3B82F6', '#06B6D4',
@@ -151,6 +95,7 @@
       const [showUserProfileModal, setShowUserProfileModal] = useState(null);
       const [confirmVoteModal, setConfirmVoteModal] = useState(null);
       const [showAvatarPainterModal, setShowAvatarPainterModal] = useState(false);
+      const [deletePredIdModal, setDeletePredIdModal] = useState(null);
 
       const [authNickname, setAuthNickname] = useState('');
       const [authError, setAuthError] = useState('');
@@ -309,9 +254,11 @@
         };
         setPredictions(prev => [newPred, ...prev.map(p => p.status === 'ACTIVE' ? { ...p, status: 'WAITING_RESULT' } : p)]);
       };
+
       const handleClosePrediction = (predId) => {
         setPredictions(prev => prev.map(p => p.id === predId ? { ...p, status: 'WAITING_RESULT' } : p));
       };
+
       const handleFinalizePrediction = (predId, winningOption) => {
         const targetPred = predictions.find(p => p.id === predId);
         if (!targetPred) return;
@@ -336,10 +283,16 @@
           completedAt: new Date().toISOString().split('T')[0]
         } : p));
       };
-      const handleCancelPrediction = (predId) => {
-        setPredictions(prev => prev.map(p => p.id === predId ? {
-          ...p, status: 'CANCELED', completedAt: new Date().toISOString().split('T')[0]
-        } : p));
+
+      // Прямое гарантированное удаление прогноза из состояния и localStorage
+      const confirmDeletePrediction = () => {
+        if (!deletePredIdModal) return;
+        setPredictions(prev => {
+          const updated = prev.filter(p => p.id !== deletePredIdModal);
+          localStorage.setItem('predict_predictions', JSON.stringify(updated));
+          return updated;
+        });
+        setDeletePredIdModal(null);
       };
 
       const calculatePercentages = (votesObj = {}) => {
@@ -357,14 +310,19 @@
       return (
         <div className="w-full bg-[#111319] border-x border-slate-800/80 min-h-screen flex flex-col relative shadow-2xl pb-24">
           <header className="sticky top-0 z-30 bg-[#111319]/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 via-cyan-500 to-indigo-500 p-[1.5px] flex items-center justify-center shadow-lg shadow-purple-900/30">
+            {/* Клик по логотипу открывает экран прогнозов */}
+            <button 
+              onClick={() => setActiveTab('PREDICTION')}
+              className="flex items-center gap-2 group text-left focus:outline-none"
+            >
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 via-cyan-500 to-indigo-500 p-[1.5px] flex items-center justify-center shadow-lg shadow-purple-900/30 group-hover:scale-105 transition-transform">
                 <div className="w-full h-full bg-[#0E1015] rounded-[10px] flex items-center justify-center">
                   <i data-lucide="sparkles" className="w-5 h-5 text-cyan-400"></i>
                 </div>
               </div>
-              <span className="font-extrabold text-xl tracking-wider bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent">PREDICT</span>
-            </div>
+              <span className="font-extrabold text-xl tracking-wider bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity">PREDICT</span>
+            </button>
+
             <div className="flex items-center gap-2">
               {currentUser ? (
                 <div className="flex items-center gap-2">
@@ -449,27 +407,31 @@
                 <div className="pt-4 space-y-4 border-t border-slate-800">
                   <h3 className="text-sm uppercase tracking-wider font-bold text-slate-300 flex items-center gap-2"><i data-lucide="clock" className="w-4 h-4 text-purple-400"></i>ИСТОРИЯ ПРОГНОЗОВ ({historyPredictions.length})</h3>
                   <div className="space-y-3">
-                    {historyPredictions.map(item => {
-                      const stats = calculatePercentages(item.votes);
-                      const userVote = currentUser ? item.votes?.[currentUser.id] : null;
-                      const isCorrect = userVote && userVote === item.winningOption;
-                      return (
-                        <div key={item.id} className="bg-[#14161F] border border-slate-800/80 rounded-xl p-4 space-y-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <h4 className="text-sm font-bold text-slate-200">«{item.question}»</h4>
-                            <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">ЗАВЕРШЕНО · {item.completedAt || item.publishedAt}</span>
+                    {historyPredictions.length === 0 ? (
+                      <p className="text-xs text-slate-500 text-center py-4">История пока пуста</p>
+                    ) : (
+                      historyPredictions.map(item => {
+                        const stats = calculatePercentages(item.votes);
+                        const userVote = currentUser ? item.votes?.[currentUser.id] : null;
+                        const isCorrect = userVote && userVote === item.winningOption;
+                        return (
+                          <div key={item.id} className="bg-[#14161F] border border-slate-800/80 rounded-xl p-4 space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <h4 className="text-sm font-bold text-slate-200">«{item.question}»</h4>
+                              <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">ЗАВЕРШЕНО · {item.completedAt || item.publishedAt}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                              <div className={`p-2 rounded-lg border ${item.winningOption === 1 ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><span className="font-bold block">{item.option1} ({stats.pct1}%)</span></div>
+                              <div className={`p-2 rounded-lg border ${item.winningOption === 2 ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><span className="font-bold block">{item.option2} ({stats.pct2}%)</span></div>
+                            </div>
+                            <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs">
+                              <span className="text-slate-400 text-[11px]">Победил: <strong className="text-slate-200">{item.winningOption === 1 ? item.option1 : item.option2}</strong></span>
+                              {userVote ? (isCorrect ? <span className="text-emerald-400 font-bold text-xs">✓ Мой ответ: {userVote === 1 ? item.option1 : item.option2} (+3 PTS)</span> : <span className="text-rose-400 font-bold text-xs">✕ Мой ответ: {userVote === 1 ? item.option1 : item.option2} (0 PTS)</span>) : <span className="text-slate-500 italic text-[11px]">Вы не участвовали</span>}
+                            </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                            <div className={`p-2 rounded-lg border ${item.winningOption === 1 ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><span className="font-bold block">{item.option1} ({stats.pct1}%)</span></div>
-                            <div className={`p-2 rounded-lg border ${item.winningOption === 2 ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><span className="font-bold block">{item.option2} ({stats.pct2}%)</span></div>
-                          </div>
-                          <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs">
-                            <span className="text-slate-400 text-[11px]">Победил: <strong className="text-slate-200">{item.winningOption === 1 ? item.option1 : item.option2}</strong></span>
-                            {userVote ? (isCorrect ? <span className="text-emerald-400 font-bold text-xs">✓ Мой ответ: {userVote === 1 ? item.option1 : item.option2} (+3 PTS)</span> : <span className="text-rose-400 font-bold text-xs">✕ Мой ответ: {userVote === 1 ? item.option1 : item.option2} (0 PTS)</span>) : <span className="text-slate-500 italic text-[11px]">Вы не участвовали</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               </div>
@@ -480,6 +442,9 @@
                 <div><h2 className="text-xs uppercase tracking-widest font-bold text-purple-400 flex items-center gap-1.5"><i data-lucide="trophy" className="w-3.5 h-3.5"></i>ГЛОБАЛЬНЫЙ РЕЙТИНГ</h2><p className="text-xl font-black tracking-tight text-white mt-0.5">Лидеры Прогнозов</p></div>
                 {(() => {
                   const sortedUsers = [...users].sort((a, b) => b.balance - a.balance);
+                  if (sortedUsers.length === 0) {
+                    return <div className="bg-[#13151E] border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-xs">Пока нет зарегистрированных игроков</div>;
+                  }
                   return <div className="bg-[#13151E] border border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-800">
                     {sortedUsers.map((user, idx) => {
                       const total = user.wins + user.losses;
@@ -524,7 +489,8 @@
 
           {showAuthModal && (
             <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-              <div className="bg-[#141622] border border-slate-700 rounded-2xl w-full max-w-sm p-6 space-y-4">
+              <div className="bg-[#141622] border border-slate-700 rounded-2xl w-full max-w-sm p-6 space-y-4 relative">
+                <button onClick={() => setShowAuthModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white font-bold text-sm">✕</button>
                 <h3 className="text-xl font-black text-white text-center">Вход по Никнейму</h3>
                 <form onSubmit={handleAuthSubmit} className="space-y-4">
                   <input type="text" placeholder="Введите никнейм" value={authNickname} onChange={e => setAuthNickname(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm font-mono" />
@@ -562,9 +528,36 @@
             </div>
           )}
 
+          {/* Модальное окно подтвеждения удаления прогноза */}
+          {deletePredIdModal && (
+            <div className="fixed inset-0 z-[60] bg-black/85 flex items-center justify-center p-4">
+              <div className="bg-[#141622] border border-rose-500/50 rounded-2xl w-full max-w-sm p-6 space-y-4 text-center shadow-2xl">
+                <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto text-xl">🗑️</div>
+                <h3 className="text-lg font-black text-white">Удалить этот прогноз?</h3>
+                <p className="text-xs text-slate-400">Прогноз будет полностью стираться из системы и памяти устройства.</p>
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button onClick={() => setDeletePredIdModal(null)} className="py-2.5 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-700">Отмена</button>
+                  <button onClick={confirmDeletePrediction} className="py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl">Да, удалить</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Окно ввода кода администратора с крестиком закрытия */}
           {showAdminLoginModal && (
             <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-              <div className="bg-[#141622] border border-slate-700 rounded-2xl w-full max-w-sm p-6 space-y-4">
+              <div className="bg-[#141622] border border-slate-700 rounded-2xl w-full max-w-sm p-6 space-y-4 relative">
+                <button 
+                  onClick={() => {
+                    setShowAdminLoginModal(false);
+                    setAdminError('');
+                    setAdminCode('');
+                  }} 
+                  className="absolute top-4 right-4 text-slate-400 hover:text-white transition font-bold text-sm"
+                  title="Закрыть"
+                >
+                  ✕
+                </button>
                 <h3 className="text-lg font-black text-white text-center">Вход Администратора</h3>
                 <form onSubmit={handleAdminLogin} className="space-y-4">
                   <input type="password" placeholder="Секретный код" value={adminCode} onChange={e => setAdminCode(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm font-mono text-center" />
@@ -594,6 +587,12 @@
                   <div className="grid grid-cols-2 gap-2 pt-2">
                     <button onClick={() => handleFinalizePrediction(activePrediction.id, 1)} className="py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl">Победил: {activePrediction.option1} (+3 PTS)</button>
                     <button onClick={() => handleFinalizePrediction(activePrediction.id, 2)} className="py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl">Победил: {activePrediction.option2} (+3 PTS)</button>
+                  </div>
+                  {/* Кнопка открытия модального окна для удаления прогноза */}
+                  <div className="pt-2 border-t border-slate-800">
+                    <button onClick={() => setDeletePredIdModal(activePrediction.id)} className="w-full py-2.5 bg-rose-950/40 border border-rose-900/50 text-rose-400 text-xs font-bold rounded-xl hover:bg-rose-900/40 transition flex items-center justify-center gap-1">
+                      <span>🗑️</span> Удалить текущий прогноз
+                    </button>
                   </div>
                 </div>
               )}

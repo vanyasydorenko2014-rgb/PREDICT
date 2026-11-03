@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PREDICT — Прогнозы, рейтинг и соревнование игроков</title>
+  <meta name="description" content="PREDICT — платформа прогнозов. Делай прогнозы на события, набирай очки, следи за результатами и поднимайся в общем рейтинге игроков.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="author" content="PREDICT">
+  <meta name="theme-color" content="#0A0B0E">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="PREDICT">
+  <meta property="og:title" content="PREDICT — Платформа прогнозов">
+  <meta property="og:description" content="Делай прогнозы, набирай очки и поднимайся в рейтинге игроков.">
+  <meta property="og:locale" content="ru_RU">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="PREDICT — Платформа прогнозов">
+  <meta name="twitter:description" content="Делай прогнозы, набирай очки и поднимайся в рейтинге игроков.">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            darkBg: '#0A0B0E',
+            cardBg: '#111319',
+            cardBorder: 'rgba(139, 92, 246, 0.2)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #0A0B0E; }
+    ::-webkit-scrollbar-thumb { background: #1F2937; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #374151; }
+    body {
+      background-color: #0A0B0E;
+      color: #F3F4F6;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+  </style>
+</head>
+<body class="bg-[#0A0B0E] text-slate-100 min-h-screen flex justify-center">
+  <div id="root" class="w-full max-w-md min-h-screen flex flex-col">
+    <noscript>
+      <main style="max-width:700px;margin:40px auto;padding:24px;font-family:Arial,sans-serif;color:#f3f4f6;background:#111319;border-radius:12px">
+        <h1>PREDICT — платформа прогнозов</h1>
+        <p>Делай прогнозы на события, набирай очки, следи за результатами и поднимайся в рейтинге игроков.</p>
+        <p>Для работы приложения включи JavaScript в браузере.</p>
+      </main>
+    </noscript>
+  </div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+    const ADMIN_ACCESS_CODE = "prognnys";
+
+    const generateDefaultAvatar = (text = 'P') => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#1A1D28';
+      ctx.fillRect(0, 0, 64, 64);
+      ctx.fillStyle = '#8B5CF6';
+      ctx.beginPath();
+      ctx.arc(32, 32, 28, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 30px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text.charAt(0).toUpperCase(), 32, 34);
+      return canvas.toDataURL();
+    };
+
+    const INITIAL_PREDICTIONS = [
+      {
+        id: 'pred_1',
+        question: 'Выиграет ли сегодня Barcelona?',
+        option1: 'ДА',
+        option2: 'НЕТ',
+        status: 'COMPLETED',
+        winningOption: 1,
+        publishedAt: '2026-11-01',
+        completedAt: '2026-11-02',
+        votes: { 'user_demo_1': 1, 'user_demo_2': 1, 'user_demo_3': 2 }
+      },
+      {
+        id: 'pred_2',
+        question: 'Выйдет ли GTA 6 до конца 2027 года?',
+        option1: 'ДА',
+        option2: 'НЕТ',
+        status: 'ACTIVE',
+        winningOption: null,
+        publishedAt: '2026-11-03',
+        completedAt: null,
+        votes: { 'user_demo_1': 1, 'user_demo_2': 2 }
+      }
+    ];
+
+    const INITIAL_USERS = [
+      {
+        id: 'user_demo_1', username: 'CryptoOracle', avatar: generateDefaultAvatar('C'),
+        balance: 15, wins: 5, losses: 1, streak: 3, role: 'USER', createdAt: '2026-10-15'
+      },
+      {
+        id: 'user_demo_2', username: 'Nostradamus', avatar: generateDefaultAvatar('N'),
+        balance: 9, wins: 3, losses: 2, streak: 1, role: 'USER', createdAt: '2026-10-18'
+      },
+      {
+        id: 'user_demo_3', username: 'Futurist99', avatar: generateDefaultAvatar('F'),
+        balance: 3, wins: 1, losses: 3, streak: 0, role: 'USER', createdAt: '2026-10-20'
+      }
+    ];
+
+    const DRAW_COLORS = [
+      '#000000', '#FFFFFF', '#8B5CF6', '#3B82F6', '#06B6D4',
+      '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#64748B'
+    ];
+
+    function App() {
+      const [users, setUsers] = useState(() => {
+        const saved = localStorage.getItem('predict_users');
+        return saved ? JSON.parse(saved) : INITIAL_USERS;
+      });
+      const [predictions, setPredictions] = useState(() => {
+        const saved = localStorage.getItem('predict_predictions');
+        return saved ? JSON.parse(saved) : INITIAL_PREDICTIONS;
+      });
+      const [currentUserId, setCurrentUserId] = useState(() => localStorage.getItem('predict_current_user_id') || null);
+      const [activeTab, setActiveTab] = useState('PREDICTION');
+
+      const [showAuthModal, setShowAuthModal] = useState(false);
+      const [showAdminLoginModal, setShowAdminLoginModal] = useState(false);
+      const [showAdminPanelModal, setShowAdminPanelModal] = useState(false);
+      const [showUserProfileModal, setShowUserProfileModal] = useState(null);
+      const [confirmVoteModal, setConfirmVoteModal] = useState(null);
+      const [showAvatarPainterModal, setShowAvatarPainterModal] = useState(false);
+
+      const [authNickname, setAuthNickname] = useState('');
+      const [authError, setAuthError] = useState('');
+      const [adminCode, setAdminCode] = useState('');
+      const [adminError, setAdminError] = useState('');
+
+      const canvasRef = useRef(null);
+      const [drawColor, setDrawColor] = useState('#8B5CF6');
+      const [brushSize, setBrushSize] = useState(6);
+      const [isEraser, setIsEraser] = useState(false);
+      const [isDrawing, setIsDrawing] = useState(false);
+
+      useEffect(() => localStorage.setItem('predict_users', JSON.stringify(users)), [users]);
+      useEffect(() => localStorage.setItem('predict_predictions', JSON.stringify(predictions)), [predictions]);
+      useEffect(() => {
+        if (currentUserId) localStorage.setItem('predict_current_user_id', currentUserId);
+        else localStorage.removeItem('predict_current_user_id');
+      }, [currentUserId]);
+      useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+      });
+
+      const currentUser = useMemo(() => users.find(u => u.id === currentUserId) || null, [users, currentUserId]);
+      const activePrediction = useMemo(
+        () => predictions.find(p => p.status === 'ACTIVE' || p.status === 'WAITING_RESULT') || null,
+        [predictions]
+      );
+      const historyPredictions = useMemo(() => predictions
+        .filter(p => p.status === 'COMPLETED' || p.status === 'CANCELED')
+        .sort((a, b) => new Date(b.completedAt || b.publishedAt) - new Date(a.completedAt || a.publishedAt)), [predictions]);
+
+      const initCanvas = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#111319';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (currentUser && currentUser.avatar) {
+          const img = new Image();
+          img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          img.src = currentUser.avatar;
+        }
+      };
+      useEffect(() => {
+        if (showAvatarPainterModal) setTimeout(initCanvas, 50);
+      }, [showAvatarPainterModal]);
+
+      const startDrawing = (e) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        ctx.beginPath();
+        ctx.moveTo((clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY);
+        setIsDrawing(true);
+      };
+      const draw = (e) => {
+        if (!isDrawing) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        ctx.lineWidth = brushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = isEraser ? '#111319' : drawColor;
+        ctx.lineTo((clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY);
+        ctx.stroke();
+      };
+      const stopDrawing = () => setIsDrawing(false);
+      const clearCanvas = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#111319';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      };
+      const saveAvatarFromCanvas = () => {
+        const canvas = canvasRef.current;
+        if (!canvas || !currentUser) return;
+        const dataUrl = canvas.toDataURL('image/png');
+        setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, avatar: dataUrl } : u));
+        setShowAvatarPainterModal(false);
+      };
+
+      const handleAuthSubmit = (e) => {
+        e.preventDefault();
+        const cleanNick = authNickname.trim();
+        if (!cleanNick) return setAuthError('Пожалуйста, введите никнейм');
+        if (cleanNick.length < 3) return setAuthError('Никнейм должен быть от 3 символов');
+        const existing = users.find(u => u.username.toLowerCase() === cleanNick.toLowerCase());
+        if (existing) {
+          setCurrentUserId(existing.id);
+          setShowAuthModal(false);
+          setAuthNickname('');
+          setAuthError('');
+        } else {
+          const newUser = {
+            id: 'user_' + Date.now(),
+            username: cleanNick,
+            avatar: generateDefaultAvatar(cleanNick),
+            balance: 0, wins: 0, losses: 0, streak: 0, role: 'USER',
+            createdAt: new Date().toISOString().split('T')[0]
+          };
+          setUsers(prev => [...prev, newUser]);
+          setCurrentUserId(newUser.id);
+          setShowAuthModal(false);
+          setAuthNickname('');
+          setAuthError('');
+        }
+      };
+
+      const handleAdminLogin = (e) => {
+        e.preventDefault();
+        if (adminCode === ADMIN_ACCESS_CODE) {
+          setShowAdminLoginModal(false);
+          setAdminCode('');
+          setAdminError('');
+          setShowAdminPanelModal(true);
+        } else setAdminError('Неверный секретный код');
+      };
+
+      const submitVote = () => {
+        if (!currentUser) {
+          setShowAuthModal(true);
+          setConfirmVoteModal(null);
+          return;
+        }
+        if (!confirmVoteModal) return;
+        const { predictionId, option } = confirmVoteModal;
+        setPredictions(prev => prev.map(p => {
+          if (p.id === predictionId) {
+            if (p.votes && p.votes[currentUser.id]) return p;
+            return { ...p, votes: { ...(p.votes || {}), [currentUser.id]: option } };
+          }
+          return p;
+        }));
+        setConfirmVoteModal(null);
+      };
+
+      const handleCreatePrediction = (question, option1, option2) => {
+        const newPred = {
+          id: 'pred_' + Date.now(), question,
+          option1: option1.trim() || 'ДА', option2: option2.trim() || 'НЕТ',
+          status: 'ACTIVE', winningOption: null,
+          publishedAt: new Date().toISOString().split('T')[0],
+          completedAt: null, votes: {}
+        };
+        setPredictions(prev => [newPred, ...prev.map(p => p.status === 'ACTIVE' ? { ...p, status: 'WAITING_RESULT' } : p)]);
+      };
+      const handleClosePrediction = (predId) => {
+        setPredictions(prev => prev.map(p => p.id === predId ? { ...p, status: 'WAITING_RESULT' } : p));
+      };
+      const handleFinalizePrediction = (predId, winningOption) => {
+        const targetPred = predictions.find(p => p.id === predId);
+        if (!targetPred) return;
+        const votes = targetPred.votes || {};
+        const winners = [];
+        const losers = [];
+        Object.entries(votes).forEach(([userId, choice]) => {
+          if (choice === winningOption) winners.push(userId);
+          else losers.push(userId);
+        });
+        setUsers(prev => prev.map(user => {
+          if (winners.includes(user.id)) return {
+            ...user, balance: user.balance + 3, wins: user.wins + 1, streak: user.streak + 1
+          };
+          if (losers.includes(user.id)) return {
+            ...user, balance: Math.max(0, user.balance), losses: user.losses + 1, streak: 0
+          };
+          return user;
+        }));
+        setPredictions(prev => prev.map(p => p.id === predId ? {
+          ...p, status: 'COMPLETED', winningOption,
+          completedAt: new Date().toISOString().split('T')[0]
+        } : p));
+      };
+      const handleCancelPrediction = (predId) => {
+        setPredictions(prev => prev.map(p => p.id === predId ? {
+          ...p, status: 'CANCELED', completedAt: new Date().toISOString().split('T')[0]
+        } : p));
+      };
+
+      const calculatePercentages = (votesObj = {}) => {
+        const total = Object.keys(votesObj).length;
+        if (total === 0) return { count1: 0, count2: 0, pct1: 50, pct2: 50, total: 0 };
+        let count1 = 0, count2 = 0;
+        Object.values(votesObj).forEach(val => {
+          if (val === 1) count1++;
+          if (val === 2) count2++;
+        });
+        const pct1 = Math.round((count1 / total) * 100);
+        return { count1, count2, pct1, pct2: 100 - pct1, total };
+      };
+
+      return (
+        <div className="w-full bg-[#111319] border-x border-slate-800/80 min-h-screen flex flex-col relative shadow-2xl pb-24">
+          <header className="sticky top-0 z-30 bg-[#111319]/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 via-cyan-500 to-indigo-500 p-[1.5px] flex items-center justify-center shadow-lg shadow-purple-900/30">
+                <div className="w-full h-full bg-[#0E1015] rounded-[10px] flex items-center justify-center">
+                  <i data-lucide="sparkles" className="w-5 h-5 text-cyan-400"></i>
+                </div>
+              </div>
+              <span className="font-extrabold text-xl tracking-wider bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent">PREDICT</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {currentUser ? (
+                <div className="flex items-center gap-2">
+                  <div className="bg-purple-950/60 border border-purple-500/30 rounded-full px-3 py-1 flex items-center gap-1.5 shadow-inner">
+                    <i data-lucide="flame" className="w-3.5 h-3.5 text-amber-400"></i>
+                    <span className="font-bold text-xs text-purple-200 font-mono">{currentUser.balance} <span className="text-[10px] text-purple-400">PTS</span></span>
+                  </div>
+                  <button onClick={() => setActiveTab('PROFILE')} className="w-8 h-8 rounded-full ring-2 ring-purple-500/40 overflow-hidden bg-slate-800 hover:ring-purple-400 transition">
+                    <img src={currentUser.avatar} alt={currentUser.username} className="w-full h-full object-cover" />
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setShowAuthModal(true)} className="bg-gradient-to-r from-purple-600 to-cyan-600 text-white text-xs font-semibold px-3.5 py-1.5 rounded-full shadow-lg shadow-purple-900/40 transition flex items-center gap-1">
+                  <i data-lucide="user" className="w-3.5 h-3.5"></i><span>Войти</span>
+                </button>
+              )}
+              <button onClick={() => setShowAdminLoginModal(true)} className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-purple-300 border border-slate-700/60 transition" title="Админ Панель">
+                <i data-lucide="shield" className="w-4 h-4"></i>
+              </button>
+            </div>
+          </header>
+
+          <main className="flex-1 p-4 overflow-y-auto space-y-6">
+            {activeTab === 'PREDICTION' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xs uppercase tracking-widest font-bold text-cyan-400 flex items-center gap-1.5"><i data-lucide="sparkles" className="w-3.5 h-3.5"></i>PREDICT OF THE DAY</h2>
+                    <p className="text-xl font-black tracking-tight text-white mt-0.5">Прогноз Дня</p>
+                  </div>
+                  {activePrediction && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>АКТИВЕН</span>}
+                </div>
+
+                {activePrediction ? (
+                  <div className="bg-gradient-to-b from-[#181B24] to-[#12141C] border border-purple-500/20 rounded-2xl p-5 shadow-xl space-y-5 relative overflow-hidden">
+                    <h3 className="text-xl font-bold leading-snug text-slate-100">«{activePrediction.question}»</h3>
+                    {(() => {
+                      const userVote = currentUser ? activePrediction.votes?.[currentUser.id] : null;
+                      const hasVoted = Boolean(userVote);
+                      const stats = calculatePercentages(activePrediction.votes);
+                      return (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-3">
+                            <button disabled={hasVoted || activePrediction.status === 'WAITING_RESULT'} onClick={() => setConfirmVoteModal({ predictionId: activePrediction.id, option: 1 })} className={`p-4 rounded-xl border text-center transition-all ${userVote === 1 ? 'bg-purple-600/30 border-purple-500 text-white font-bold ring-2 ring-purple-500/50' : hasVoted ? 'bg-slate-900/50 border-slate-800 text-slate-400 opacity-75' : 'bg-slate-900/80 border-slate-700/70 hover:border-purple-500/80 hover:bg-slate-800 text-slate-100'}`}>
+                              <span className="block text-lg font-black uppercase tracking-wide">{activePrediction.option1}</span>
+                              {userVote === 1 && <span className="inline-block mt-1 text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full uppercase font-bold">Ваш выбор</span>}
+                            </button>
+                            <button disabled={hasVoted || activePrediction.status === 'WAITING_RESULT'} onClick={() => setConfirmVoteModal({ predictionId: activePrediction.id, option: 2 })} className={`p-4 rounded-xl border text-center transition-all ${userVote === 2 ? 'bg-cyan-600/30 border-cyan-500 text-white font-bold ring-2 ring-cyan-500/50' : hasVoted ? 'bg-slate-900/50 border-slate-800 text-slate-400 opacity-75' : 'bg-slate-900/80 border-slate-700/70 hover:border-cyan-500/80 hover:bg-slate-800 text-slate-100'}`}>
+                              <span className="block text-lg font-black uppercase tracking-wide">{activePrediction.option2}</span>
+                              {userVote === 2 && <span className="inline-block mt-1 text-[10px] bg-cyan-500 text-white px-2 py-0.5 rounded-full uppercase font-bold">Ваш выбор</span>}
+                            </button>
+                          </div>
+                          {hasVoted ? (
+                            <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
+                              <div className="flex justify-between items-center text-xs font-semibold">
+                                <span className="text-purple-400 flex items-center gap-1"><i data-lucide="bar-chart-3" className="w-3.5 h-3.5"></i>Статистика</span>
+                                <span className="text-slate-400 font-mono">Всего: {stats.total} чел.</span>
+                              </div>
+                              <div className="h-4 bg-slate-900 rounded-full overflow-hidden flex border border-slate-800">
+                                <div style={{ width: `${stats.pct1}%` }} className="bg-purple-600 flex items-center justify-center text-[9px] font-bold text-white">{stats.pct1 > 15 && `${stats.pct1}%`}</div>
+                                <div style={{ width: `${stats.pct2}%` }} className="bg-cyan-600 flex items-center justify-center text-[9px] font-bold text-white">{stats.pct2 > 15 && `${stats.pct2}%`}</div>
+                              </div>
+                              <div className="flex justify-between text-xs font-mono">
+                                <span className="text-purple-300 font-bold">{activePrediction.option1}: {stats.pct1}% ({stats.count1})</span>
+                                <span className="text-cyan-300 font-bold">{activePrediction.option2}: {stats.pct2}% ({stats.count2})</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-3 bg-slate-900/60 rounded-xl border border-dashed border-slate-800 text-center"><p className="text-xs text-slate-400 flex items-center justify-center gap-1"><i data-lucide="lock" className="w-3.5 h-3.5 text-purple-400"></i>Проценты откроются после вашего голоса</p></div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div className="bg-[#151720] border border-slate-800 rounded-2xl p-8 text-center space-y-3">
+                    <h3 className="text-lg font-bold text-slate-200">СЕЙЧАС НЕТ АКТИВНОГО ПРОГНОЗА</h3>
+                    <p className="text-xs text-slate-400">Администратор скоро опубликует новое событие.</p>
+                  </div>
+                )}
+
+                <div className="pt-4 space-y-4 border-t border-slate-800">
+                  <h3 className="text-sm uppercase tracking-wider font-bold text-slate-300 flex items-center gap-2"><i data-lucide="clock" className="w-4 h-4 text-purple-400"></i>ИСТОРИЯ ПРОГНОЗОВ ({historyPredictions.length})</h3>
+                  <div className="space-y-3">
+                    {historyPredictions.map(item => {
+                      const stats = calculatePercentages(item.votes);
+                      const userVote = currentUser ? item.votes?.[currentUser.id] : null;
+                      const isCorrect = userVote && userVote === item.winningOption;
+                      return (
+                        <div key={item.id} className="bg-[#14161F] border border-slate-800/80 rounded-xl p-4 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="text-sm font-bold text-slate-200">«{item.question}»</h4>
+                            <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">ЗАВЕРШЕНО · {item.completedAt || item.publishedAt}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                            <div className={`p-2 rounded-lg border ${item.winningOption === 1 ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><span className="font-bold block">{item.option1} ({stats.pct1}%)</span></div>
+                            <div className={`p-2 rounded-lg border ${item.winningOption === 2 ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><span className="font-bold block">{item.option2} ({stats.pct2}%)</span></div>
+                          </div>
+                          <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs">
+                            <span className="text-slate-400 text-[11px]">Победил: <strong className="text-slate-200">{item.winningOption === 1 ? item.option1 : item.option2}</strong></span>
+                            {userVote ? (isCorrect ? <span className="text-emerald-400 font-bold text-xs">✓ Мой ответ: {userVote === 1 ? item.option1 : item.option2} (+3 PTS)</span> : <span className="text-rose-400 font-bold text-xs">✕ Мой ответ: {userVote === 1 ? item.option1 : item.option2} (0 PTS)</span>) : <span className="text-slate-500 italic text-[11px]">Вы не участвовали</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'LEADERBOARD' && (
+              <div className="space-y-5">
+                <div><h2 className="text-xs uppercase tracking-widest font-bold text-purple-400 flex items-center gap-1.5"><i data-lucide="trophy" className="w-3.5 h-3.5"></i>ГЛОБАЛЬНЫЙ РЕЙТИНГ</h2><p className="text-xl font-black tracking-tight text-white mt-0.5">Лидеры Прогнозов</p></div>
+                {(() => {
+                  const sortedUsers = [...users].sort((a, b) => b.balance - a.balance);
+                  return <div className="bg-[#13151E] border border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-800">
+                    {sortedUsers.map((user, idx) => {
+                      const total = user.wins + user.losses;
+                      const winRate = total > 0 ? Math.round((user.wins / total) * 100) : 0;
+                      return <div key={user.id} onClick={() => setShowUserProfileModal(user)} className="p-3.5 flex items-center justify-between hover:bg-slate-800/50 cursor-pointer">
+                        <div className="flex items-center gap-3"><span className="w-6 font-mono text-xs font-bold text-slate-500 text-center">#{idx + 1}</span><img src={user.avatar} className="w-9 h-9 rounded-full object-cover border border-slate-700" /><div><p className="font-bold text-sm text-slate-200">{user.username}</p><p className="text-[11px] text-slate-400 font-mono">В: {user.wins} / П: {user.losses} · Точность: {winRate}%</p></div></div>
+                        <span className="font-mono font-bold text-sm text-purple-300">{user.balance} PTS</span>
+                      </div>;
+                    })}
+                  </div>;
+                })()}
+              </div>
+            )}
+
+            {activeTab === 'PROFILE' && (
+              <div className="space-y-6">
+                {currentUser ? (
+                  <div className="space-y-6">
+                    <div className="bg-[#191C27] border border-slate-800 rounded-2xl p-5 text-center space-y-4">
+                      <div className="relative inline-block mx-auto"><img src={currentUser.avatar} className="w-20 h-20 rounded-full object-cover border-4 border-purple-500/40" /><button onClick={() => setShowAvatarPainterModal(true)} className="absolute bottom-0 right-0 bg-cyan-500 text-slate-950 p-1.5 rounded-full"><i data-lucide="palette" className="w-3.5 h-3.5"></i></button></div>
+                      <div><h2 className="text-2xl font-black text-white">{currentUser.username}</h2><p className="text-xs text-slate-400 font-mono mt-0.5">ID: {currentUser.id}</p></div>
+                      <button onClick={() => setShowAvatarPainterModal(true)} className="w-full py-2.5 bg-gradient-to-r from-purple-600/30 to-cyan-600/30 border border-purple-500/40 text-purple-200 text-xs font-bold rounded-xl">НАРИСОВАТЬ СВОЙ АВАТАР</button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-[#141620] border border-slate-800 rounded-xl p-3.5"><span className="text-[10px] uppercase text-slate-400 block font-bold">Баланс</span><span className="text-xl font-black text-purple-300 font-mono">{currentUser.balance} PTS</span></div>
+                      <div className="bg-[#141620] border border-slate-800 rounded-xl p-3.5"><span className="text-[10px] uppercase text-slate-400 block font-bold">Угадано (+3 PTS)</span><span className="text-xl font-black text-emerald-400 font-mono">{currentUser.wins}</span></div>
+                    </div>
+                    <button onClick={() => setCurrentUserId(null)} className="w-full py-3 bg-rose-950/30 border border-rose-900/40 text-rose-400 font-semibold text-xs rounded-xl">Выйти из аккаунта</button>
+                  </div>
+                ) : (
+                  <div className="bg-[#151720] border border-slate-800 rounded-2xl p-8 text-center space-y-4"><h3 className="text-lg font-bold text-white">Вы не авторизованы</h3><button onClick={() => setShowAuthModal(true)} className="w-full py-3 bg-gradient-to-r from-purple-600 to-cyan-600 text-white text-xs font-bold rounded-xl">Войти по никнейму</button></div>
+                )}
+              </div>
+            )}
+          </main>
+
+          <nav className="fixed bottom-0 max-w-md w-full bg-[#0F1117]/95 backdrop-blur-lg border-t border-slate-800 py-2.5 px-4 z-40 flex justify-around">
+            <button onClick={() => setActiveTab('PREDICTION')} className={`flex flex-col items-center gap-1 ${activeTab === 'PREDICTION' ? 'text-purple-400 font-bold' : 'text-slate-400'}`}><i data-lucide="sparkles" className="w-5 h-5"></i><span className="text-[10px] uppercase">Прогноз</span></button>
+            <button onClick={() => setActiveTab('LEADERBOARD')} className={`flex flex-col items-center gap-1 ${activeTab === 'LEADERBOARD' ? 'text-purple-400 font-bold' : 'text-slate-400'}`}><i data-lucide="trophy" className="w-5 h-5"></i><span className="text-[10px] uppercase">Рейтинг</span></button>
+            <button onClick={() => setActiveTab('PROFILE')} className={`flex flex-col items-center gap-1 ${activeTab === 'PROFILE' ? 'text-purple-400 font-bold' : 'text-slate-400'}`}><i data-lucide="user" className="w-5 h-5"></i><span className="text-[10px] uppercase">Профиль</span></button>
+          </nav>
+
+          {showAuthModal && (
+            <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+              <div className="bg-[#141622] border border-slate-700 rounded-2xl w-full max-w-sm p-6 space-y-4">
+                <h3 className="text-xl font-black text-white text-center">Вход по Никнейму</h3>
+                <form onSubmit={handleAuthSubmit} className="space-y-4">
+                  <input type="text" placeholder="Введите никнейм" value={authNickname} onChange={e => setAuthNickname(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-100 text-sm font-mono" />
+                  {authError && <p className="text-xs text-rose-400">{authError}</p>}
+                  <p className="text-[11px] text-purple-300">Стартовый баланс = 0 PTS. Никнейм нельзя изменить!</p>
+                  <button type="submit" className="w-full py-3 bg-purple-600 text-white font-bold text-xs rounded-xl">Продолжить</button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {showAvatarPainterModal && (
+            <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+              <div className="bg-[#141622] border border-purple-500/40 rounded-2xl w-full max-w-xs p-5 space-y-4 text-center">
+                <h3 className="text-lg font-black text-white">Рисовалка Аватарки</h3>
+                <div className="w-48 h-48 mx-auto rounded-2xl overflow-hidden border-2 border-purple-500 bg-[#111319]">
+                  <canvas ref={canvasRef} width={128} height={128} onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing} onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing} className="w-full h-full cursor-crosshair touch-none" />
+                </div>
+                <div className="flex justify-center gap-1.5 flex-wrap">
+                  {DRAW_COLORS.map(c => <button key={c} onClick={() => { setDrawColor(c); setIsEraser(false); }} style={{ backgroundColor: c }} className="w-6 h-6 rounded-full border border-slate-600" />)}
+                  <button onClick={() => setIsEraser(!isEraser)} className={`w-6 h-6 rounded-full bg-slate-800 ${isEraser ? 'ring-2 ring-rose-500' : ''}`}>🧹</button>
+                </div>
+                <div className="flex justify-between items-center text-xs"><button onClick={clearCanvas} className="text-rose-400">Очистить</button><button onClick={saveAvatarFromCanvas} className="px-4 py-2 bg-purple-600 text-white font-bold rounded-xl">Сохранить</button></div>
+              </div>
+            </div>
+          )}
+
+          {confirmVoteModal && (
+            <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+              <div className="bg-[#141622] border border-purple-500/40 rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
+                <h3 className="text-lg font-black text-white">Подтверждение голоса</h3>
+                <p className="text-xs text-slate-300">Ваш выбор зафиксируется навсегда.</p>
+                <div className="grid grid-cols-2 gap-3"><button onClick={() => setConfirmVoteModal(null)} className="py-2.5 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl">Отмена</button><button onClick={submitVote} className="py-2.5 bg-purple-600 text-white text-xs font-bold rounded-xl">Подтвердить</button></div>
+              </div>
+            </div>
+          )}
+
+          {showAdminLoginModal && (
+            <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+              <div className="bg-[#141622] border border-slate-700 rounded-2xl w-full max-w-sm p-6 space-y-4">
+                <h3 className="text-lg font-black text-white text-center">Вход Администратора</h3>
+                <form onSubmit={handleAdminLogin} className="space-y-4">
+                  <input type="password" placeholder="Секретный код" value={adminCode} onChange={e => setAdminCode(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm font-mono text-center" />
+                  {adminError && <p className="text-xs text-rose-400 text-center">{adminError}</p>}
+                  <button type="submit" className="w-full py-2.5 bg-purple-600 text-white text-xs font-bold rounded-xl">Войти</button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {showAdminPanelModal && (
+            <div className="fixed inset-0 z-50 bg-[#0C0E14] p-4 overflow-y-auto space-y-6">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-3"><h2 className="text-lg font-black text-white">ПАНЕЛЬ АДМИНИСТРАТОРА</h2><button onClick={() => setShowAdminPanelModal(false)} className="text-slate-400">✕</button></div>
+              <div className="bg-[#141622] border border-slate-800 rounded-2xl p-5 space-y-3">
+                <h3 className="text-sm font-bold text-purple-300 uppercase">Создать Прогноз</h3>
+                <form onSubmit={e => { e.preventDefault(); handleCreatePrediction(e.target.q.value, e.target.o1.value, e.target.o2.value); e.target.reset(); }} className="space-y-3">
+                  <input name="q" placeholder="Вопрос" required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" />
+                  <div className="grid grid-cols-2 gap-2"><input name="o1" defaultValue="ДА" className="bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white" /><input name="o2" defaultValue="НЕТ" className="bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white" /></div>
+                  <button type="submit" className="w-full py-2.5 bg-purple-600 text-white font-bold text-xs rounded-xl">Опубликовать</button>
+                </form>
+              </div>
+              {activePrediction && (
+                <div className="bg-[#141622] border border-slate-800 rounded-2xl p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-slate-200">Управление Активным Прогнозом</h3>
+                  <p className="text-xs text-slate-300">«{activePrediction.question}»</p>
+                  {activePrediction.status === 'ACTIVE' && <button onClick={() => handleClosePrediction(activePrediction.id)} className="w-full py-2 bg-amber-600 text-white text-xs font-bold rounded-xl">Завершить прием голосов</button>}
+                  <div className="grid grid-cols-2 gap-2 pt-2">
+                    <button onClick={() => handleFinalizePrediction(activePrediction.id, 1)} className="py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl">Победил: {activePrediction.option1} (+3 PTS)</button>
+                    <button onClick={() => handleFinalizePrediction(activePrediction.id, 2)} className="py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl">Победил: {activePrediction.option2} (+3 PTS)</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
